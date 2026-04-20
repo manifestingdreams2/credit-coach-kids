@@ -44,20 +44,26 @@ function clampScore(n: number) {
   return Math.max(MIN_SCORE, Math.min(MAX_SCORE, n));
 }
 
+function readStoredState(): GameState {
+  if (typeof window === "undefined") return initialState;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return initialState;
+    const parsed = JSON.parse(raw) as Partial<GameState>;
+    return { ...initialState, ...parsed };
+  } catch {
+    return initialState;
+  }
+}
+
 export function useGameState() {
   const [state, setState] = useState<GameState>(initialState);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<GameState>;
-        setState({ ...initialState, ...parsed });
-      }
-    } catch {
-      // ignore — fall back to initial state
-    }
+    // Reads localStorage on mount; avoids hydration mismatch by starting with initialState on the server.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setState(readStoredState());
     setLoaded(true);
   }, []);
 

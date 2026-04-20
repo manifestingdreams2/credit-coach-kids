@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AVATARS, useGameState } from "@/hooks/useGameState";
-import { curriculum } from "@/lib/creditCurriculum";
+import { AVATARS, useGameState, type GameState } from "@/hooks/useGameState";
+import { curriculum, type Level } from "@/lib/creditCurriculum";
 
 type Tab = "home" | "missions" | "rewards" | "avatar";
 
@@ -28,7 +28,7 @@ export default function HomePage() {
   }
 
   const totalLessons = curriculum.reduce(
-    (acc: number, level: any) => acc + level.lessons.length,
+    (acc, level) => acc + level.lessons.length,
     0
   );
   const completedLessons = state.completedLessons.length;
@@ -38,8 +38,8 @@ export default function HomePage() {
       ? Math.round((completedLessons / totalLessons) * 100)
       : 0;
 
-  const nextLevel =
-    curriculum.find((level: any) => state.creditScore < level.unlockScore) ??
+  const nextLevel: Level | null =
+    curriculum.find((level) => state.creditScore < level.unlockScore) ??
     null;
 
   return (
@@ -174,12 +174,12 @@ function HomeView({
   nextLevel,
   onStartMission,
 }: {
-  state: any;
+  state: GameState;
   completedLessons: number;
   completedLevels: number;
   totalLessons: number;
   progressPct: number;
-  nextLevel: any;
+  nextLevel: Level | null;
   onStartMission: () => void;
 }) {
   return (
@@ -287,7 +287,7 @@ function HomeView({
   );
 }
 
-function MissionsView({ state }: { state: any }) {
+function MissionsView({ state }: { state: GameState }) {
   return (
     <>
       <section style={styles.sectionHeader}>
@@ -296,8 +296,8 @@ function MissionsView({ state }: { state: any }) {
       </section>
 
       <section style={styles.levelStack}>
-        {curriculum.map((level: any, index: number) => {
-          const doneCount = level.lessons.filter((lesson: any) =>
+        {curriculum.map((level, index) => {
+          const doneCount = level.lessons.filter((lesson) =>
             state.completedLessons.includes(lesson.id)
           ).length;
 
@@ -377,7 +377,7 @@ function RewardsView({
   completedLevels,
   totalLessons,
 }: {
-  state: any;
+  state: GameState;
   completedLessons: number;
   completedLevels: number;
   totalLessons: number;
@@ -419,7 +419,7 @@ function RewardsView({
       </section>
 
       <section style={styles.trophyStack}>
-        {curriculum.map((level: any, index: number) => {
+        {curriculum.map((level, index) => {
           const complete = state.completedLevels.includes(level.id);
           return (
             <div
@@ -716,6 +716,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 16,
     cursor: "pointer",
     boxShadow: "0 10px 22px rgba(255,178,0,0.28)",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "transparent",
+    position: "relative",
+    zIndex: 2,
   },
 
   mascotWrap: {
