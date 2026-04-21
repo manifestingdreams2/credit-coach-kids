@@ -74,7 +74,10 @@ export default function LessonPage() {
     const map = readResume();
     const entry = map[lessonId];
     if (entry && (entry.phase === "cards" || entry.phase === "intro")) {
+      // Reads localStorage on mount to resume mid-lesson position; must run post-hydration.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPhase(entry.phase);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCardIndex(Math.max(0, entry.cardIndex ?? 0));
     }
     setRestored(true);
