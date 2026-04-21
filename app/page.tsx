@@ -1,14 +1,51 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AVATARS, useGameState, type GameState } from "@/hooks/useGameState";
-import { curriculum, type Level } from "@/lib/creditCurriculum";
+import { curriculum, type Level, type Lesson } from "@/lib/creditCurriculum";
 
 type Tab = "home" | "missions" | "rewards" | "avatar";
 
+function pickNextLessonId(
+  state: GameState
+): { lessonId: string; levelId: string } {
+  for (const lvl of curriculum) {
+    if (state.creditScore < lvl.unlockScore) continue;
+    const incomplete = lvl.lessons.find(
+      (l) => !state.completedLessons.includes(l.id)
+    );
+    if (incomplete) return { lessonId: incomplete.id, levelId: lvl.id };
+  }
+  const first = curriculum[0];
+  return { lessonId: first.lessons[0].id, levelId: first.id };
+}
+
+function pickLessonForLevel(
+  level: Level,
+  state: GameState
+): Lesson {
+  return (
+    level.lessons.find((l) => !state.completedLessons.includes(l.id)) ??
+    level.lessons[0]
+  );
+}
+
 export default function HomePage() {
+  const router = useRouter();
   const { state, loaded, setAvatar } = useGameState();
   const [activeTab, setActiveTab] = useState<Tab>("home");
+
+  const launchNextMission = () => {
+    const { lessonId } = pickNextLessonId(state);
+    router.push(`/lesson/${lessonId}`);
+  };
+
+  const launchLevel = (level: Level) => {
+    const lesson = pickLessonForLevel(level, state);
+    router.push(`/lesson/${lesson.id}`);
+  };
 
   if (!loaded) {
     return (
@@ -75,12 +112,12 @@ export default function HomePage() {
               totalLessons={totalLessons}
               progressPct={progressPct}
               nextLevel={nextLevel}
-              onStartMission={() => setActiveTab("missions")}
+              onStartMission={launchNextMission}
             />
           )}
 
           {activeTab === "missions" && (
-            <MissionsView state={state} />
+            <MissionsView state={state} onPlayLevel={launchLevel} />
           )}
 
           {activeTab === "rewards" && (
@@ -98,6 +135,15 @@ export default function HomePage() {
               onSelect={setAvatar}
             />
           )}
+
+          <footer style={styles.complianceFooter} aria-label="Legal">
+            <div style={styles.complianceLine}>
+              Educational app • No financial advice
+            </div>
+            <Link href="/legal" style={styles.complianceLink}>
+              Disclaimers & Privacy
+            </Link>
+          </footer>
 
           <div style={styles.bottomSpacer} />
         </section>
@@ -287,7 +333,13 @@ function HomeView({
   );
 }
 
-function MissionsView({ state }: { state: GameState }) {
+function MissionsView({
+  state,
+  onPlayLevel,
+}: {
+  state: GameState;
+  onPlayLevel: (level: Level) => void;
+}) {
   return (
     <>
       <section style={styles.sectionHeader}>
@@ -305,11 +357,21 @@ function MissionsView({ state }: { state: GameState }) {
           const complete = doneCount === level.lessons.length;
 
           return (
-            <div
+            <button
               key={level.id ?? index}
+              type="button"
+              onClick={() => {
+                if (unlocked) onPlayLevel(level);
+              }}
+              disabled={!unlocked}
+              aria-label={`${
+                unlocked ? "Play" : "Locked"
+              } ${level.title ?? `Level ${index + 1}`}`}
               style={{
-                ...styles.levelCard,
+                ...styles.levelCardBtn,
                 ...(unlocked ? styles.levelCardOpen : styles.levelCardLocked),
+                cursor: unlocked ? "pointer" : "not-allowed",
+                opacity: unlocked ? 1 : 0.7,
               }}
             >
               <div
@@ -341,8 +403,8 @@ function MissionsView({ state }: { state: GameState }) {
                     {complete
                       ? "Done"
                       : unlocked
-                      ? "Play"
-                      : `${level.unlockScore}`}
+                      ? "Play ▸"
+                      : `🔒 ${level.unlockScore}`}
                   </div>
                 </div>
 
@@ -358,12 +420,12 @@ function MissionsView({ state }: { state: GameState }) {
                     {complete
                       ? "Completed"
                       : unlocked
-                      ? "Unlocked"
+                      ? "Tap to play"
                       : `Unlock at ${level.unlockScore}`}
                   </span>
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
       </section>
@@ -986,6 +1048,24 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 10px 24px rgba(10, 34, 75, 0.08)",
   },
 
+  levelCardBtn: {
+    display: "flex",
+    gap: 14,
+    alignItems: "flex-start",
+    borderRadius: 26,
+    padding: 16,
+    boxShadow: "0 10px 24px rgba(10, 34, 75, 0.08)",
+    border: 0,
+    textAlign: "left",
+    width: "100%",
+    font: "inherit",
+    color: "inherit",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "transparent",
+    position: "relative",
+    zIndex: 2,
+  },
+
   levelCardOpen: {
     background: "#fff",
   },
@@ -1230,6 +1310,33 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#fff8d1",
     border: "3px solid #ffcf43",
     boxShadow: "0 10px 24px rgba(255, 178, 0, 0.32)",
+  },
+
+  complianceFooter: {
+    marginTop: 8,
+    padding: "12px 16px",
+    borderRadius: 18,
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.2)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 6,
+    textAlign: "center",
+  },
+
+  complianceLine: {
+    fontSize: 12,
+    fontWeight: 800,
+    color: "rgba(255,255,255,0.9)",
+    letterSpacing: "0.02em",
+  },
+
+  complianceLink: {
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#ffd84d",
+    textDecoration: "underline",
   },
 
   bottomSpacer: {
