@@ -1,20 +1,52 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useGameState } from "@/hooks/useGameState";
-import { getLessonById, getLevelForLesson } from "@/lib/creditCurriculum";
+import {
+  getLessonById,
+  getLessonFlashcards,
+  getLevelForLesson,
+} from "@/lib/creditCurriculum";
+import FlashcardDeck from "@/components/FlashcardDeck";
 import QuizCard from "@/components/QuizCard";
 import ScenarioCard from "@/components/ScenarioCard";
 import ProgressBar from "@/components/ProgressBar";
 import ScoreBadge from "@/components/ScoreBadge";
 
-type Phase = "concept" | "questions" | "complete";
+type Phase = "intro" | "cards" | "quiz" | "complete";
+
+type ResumeMap = Record<
+  string,
+  { phase: Phase; cardIndex: number } | undefined
+>;
+
+const RESUME_KEY = "credit-coach-kids-lesson-resume-v1";
+
+function readResume(): ResumeMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(RESUME_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as ResumeMap;
+  } catch {
+    return {};
+  }
+}
+
+function writeResume(map: ResumeMap) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RESUME_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
 
 export default function LessonPage() {
   const params = useParams<{ id: string }>();
-  const lessonId = params?.id;
+  const lessonId = params?.id ?? "";
   const lesson = useMemo(
     () => (lessonId ? getLessonById(lessonId) : undefined),
     [lessonId]
@@ -23,13 +55,49 @@ export default function LessonPage() {
     () => (lessonId ? getLevelForLesson(lessonId) : undefined),
     [lessonId]
   );
+  const flashcards = useMemo(
+    () => (lesson ? getLessonFlashcards(lesson) : []),
+    [lesson]
+  );
 
   const { state, loaded, markLessonComplete } = useGameState();
-  const [phase, setPhase] = useState<Phase>("concept");
+  const [phase, setPhase] = useState<Phase>("intro");
+  const [cardIndex, setCardIndex] = useState(0);
   const [qIndex, setQIndex] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [pointsAwarded, setPointsAwarded] = useState(0);
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    if (!lessonId || restored) return;
+    const map = readResume();
+    const entry = map[lessonId];
+    if (entry && (entry.phase === "cards" || entry.phase === "intro")) {
+      setPhase(entry.phase);
+      setCardIndex(Math.max(0, entry.cardIndex ?? 0));
+    }
+    setRestored(true);
+  }, [lessonId, restored]);
+
+  const persistResume = useCallback(
+    (next: { phase: Phase; cardIndex: number }) => {
+      if (!lessonId) return;
+      const map = readResume();
+      if (next.phase === "complete") {
+        delete map[lessonId];
+      } else {
+        map[lessonId] = { phase: next.phase, cardIndex: next.cardIndex };
+      }
+      writeResume(map);
+    },
+    [lessonId]
+  );
+
+  useEffect(() => {
+    if (!restored) return;
+    persistResume({ phase, cardIndex });
+  }, [phase, cardIndex, restored, persistResume]);
 
   if (!loaded) {
     return (
@@ -81,8 +149,22 @@ export default function LessonPage() {
     setPhase("complete");
   };
 
+  const startCards = () => {
+    setPhase("cards");
+  };
+
+  const startQuiz = () => {
+    setQIndex(0);
+    setCorrectCount(0);
+    setPhase("quiz");
+  };
+
+  const reviewLesson = () => {
+    setPhase("cards");
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-100 via-violet-50 to-violet-100 px-4 py-6 pb-16">
+    <div className="min-h-screen bg-gradient-to-b from-sky-100 via-violet-50 to-violet-100 px-4 py-6 pb-24">
       <div className="max-w-xl mx-auto flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <Link
@@ -91,51 +173,97 @@ export default function LessonPage() {
           >
             ← Home
           </Link>
-          {phase === "questions" && (
-            <div className="flex-1">
-              <ProgressBar
-                current={qIndex + 1}
-                total={total}
-                showLabel={false}
-                height={8}
-                color="#8b5cf6"
-              />
-            </div>
-          )}
-          {phase === "questions" && (
-            <span className="text-xs font-bold text-slate-500 tabular-nums">
-              {qIndex + 1} / {total}
-            </span>
+          {phase === "quiz" && (
+            <>
+              <div className="flex-1">
+                <ProgressBar
+                  current={qIndex + 1}
+                  total={total}
+                  showLabel={false}
+                  height={8}
+                  color="#8b5cf6"
+                />
+              </div>
+              <span className="text-xs font-bold text-slate-500 tabular-nums">
+                {qIndex + 1} / {total}
+              </span>
+            </>
           )}
         </div>
 
-        {phase === "concept" && (
-          <div className="bg-white rounded-3xl shadow-lg p-6 space-y-4">
+        {phase === "intro" && (
+          <div className="bg-white rounded-3xl shadow-lg p-6 space-y-5">
             <div className="space-y-1">
               <p className="text-xs font-bold uppercase tracking-widest text-violet-500">
                 {level ? `Level ${level.number} · ${level.title}` : "Lesson"}
               </p>
-              <h1 className="text-2xl font-extrabold text-slate-800">
+              <h1 className="text-3xl font-extrabold text-slate-800 leading-tight">
                 {lesson.title}
               </h1>
               <p className="text-sm font-semibold text-slate-500">
                 {lesson.description}
               </p>
             </div>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-slate-700 leading-relaxed">{lesson.concept}</p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-violet-50 rounded-2xl p-4 text-center">
+                <p className="text-3xl mb-1" aria-hidden>
+                  🧠
+                </p>
+                <p className="text-2xl font-extrabold text-violet-600">
+                  {flashcards.length}
+                </p>
+                <p className="text-xs font-bold text-violet-500 uppercase tracking-wider">
+                  Flash Cards
+                </p>
+              </div>
+              <div className="bg-sky-50 rounded-2xl p-4 text-center">
+                <p className="text-3xl mb-1" aria-hidden>
+                  ❓
+                </p>
+                <p className="text-2xl font-extrabold text-sky-600">{total}</p>
+                <p className="text-xs font-bold text-sky-500 uppercase tracking-wider">
+                  Quiz Questions
+                </p>
+              </div>
             </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 space-y-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                How it works
+              </p>
+              <ol className="list-decimal list-inside text-sm font-semibold text-slate-700 space-y-1">
+                <li>Read the flash cards to learn the idea.</li>
+                <li>Then answer a short quiz to earn coins.</li>
+                <li>Tap “Review Lesson” in the quiz if you need a reminder.</li>
+              </ol>
+            </div>
+
             <button
               type="button"
-              onClick={() => setPhase("questions")}
-              className="w-full bg-violet-500 hover:bg-violet-600 text-white font-bold py-4 rounded-2xl transition-colors active:scale-[0.99]"
+              onClick={startCards}
+              className="w-full bg-violet-500 hover:bg-violet-600 text-white font-extrabold py-4 rounded-2xl transition-colors active:scale-[0.99] text-lg"
+              style={{
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+              }}
             >
-              Start Quiz
+              Start Learning →
             </button>
           </div>
         )}
 
-        {phase === "questions" && currentQ && (
+        {phase === "cards" && (
+          <FlashcardDeck
+            cards={flashcards}
+            initialIndex={cardIndex}
+            onIndexChange={setCardIndex}
+            onComplete={startQuiz}
+            ctaLabel="Start Quiz"
+          />
+        )}
+
+        {phase === "quiz" && currentQ && (
           <>
             {currentQ.kind === "mcq" ? (
               <QuizCard
@@ -150,6 +278,18 @@ export default function LessonPage() {
                 onNext={handleAnswer}
               />
             )}
+
+            <button
+              type="button"
+              onClick={reviewLesson}
+              className="self-center text-sm font-bold text-violet-600 hover:text-violet-800 underline underline-offset-4"
+              style={{
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              ← Review Lesson
+            </button>
           </>
         )}
 
@@ -203,21 +343,34 @@ export default function LessonPage() {
               </div>
             </div>
 
-            <div className="bg-violet-50 rounded-2xl p-4 text-left">
-              <p className="text-xs font-bold uppercase tracking-widest text-violet-600 mb-1">
-                Tip
+            <div className="bg-violet-50 rounded-2xl p-4 text-left space-y-2">
+              <p className="text-xs font-bold uppercase tracking-widest text-violet-600">
+                Recap
               </p>
               <p className="text-sm font-semibold text-slate-700 leading-relaxed">
                 {lesson.closingTip}
               </p>
             </div>
 
-            <Link
-              href="/"
-              className="block w-full bg-violet-500 hover:bg-violet-600 text-white font-bold py-4 rounded-2xl transition-colors"
-            >
-              Back to Home
-            </Link>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={reviewLesson}
+                className="w-full bg-white border-2 border-violet-300 text-violet-700 font-bold py-3 rounded-2xl hover:bg-violet-50 transition-colors active:scale-[0.99]"
+                style={{
+                  touchAction: "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                Review Cards
+              </button>
+              <Link
+                href="/"
+                className="w-full inline-flex items-center justify-center bg-violet-500 hover:bg-violet-600 text-white font-bold py-3 rounded-2xl transition-colors"
+              >
+                Home
+              </Link>
+            </div>
           </div>
         )}
       </div>

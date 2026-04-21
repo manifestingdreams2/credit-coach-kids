@@ -20,11 +20,18 @@ export type ScenarioQuestion = {
 
 export type Question = MCQuestion | ScenarioQuestion;
 
+export type FlashCard = {
+  title: string;
+  text: string;
+  emoji?: string;
+};
+
 export type Lesson = {
   id: string;
   title: string;
   description: string;
   concept: string;
+  flashcards?: FlashCard[];
   questions: Question[];
   closingTip: string;
 };
@@ -76,6 +83,23 @@ export const curriculum: Level[] = [
         description: "Borrowing, trust, and paying back.",
         concept:
           "Credit means borrowing money or something valuable and promising to pay it back later. When a bank, store, or person lets you borrow, they trust that you'll return it — usually with a little extra to thank them for waiting. That extra is called interest. Credit is built on trust: keep your promises, and people will keep trusting you.",
+        flashcards: [
+          {
+            emoji: "💳",
+            title: "What is Credit?",
+            text: "Credit means borrowing money or something valuable.",
+          },
+          {
+            emoji: "🤝",
+            title: "Pay It Back",
+            text: "When you use credit, you promise to pay it back later.",
+          },
+          {
+            emoji: "⭐",
+            title: "Trust",
+            text: "Paying back on time shows people they can trust you.",
+          },
+        ],
         questions: [
           {
             kind: "mcq",
@@ -1036,4 +1060,37 @@ export function getLevelForLesson(lessonId: string): Level | undefined {
   return curriculum.find((lvl) =>
     lvl.lessons.some((l) => l.id === lessonId)
   );
+}
+
+const FALLBACK_EMOJIS = ["💡", "🌟", "✨", "📘"];
+
+export function getLessonFlashcards(lesson: Lesson): FlashCard[] {
+  if (lesson.flashcards && lesson.flashcards.length > 0) {
+    return lesson.flashcards;
+  }
+  const sentences = lesson.concept
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (sentences.length === 0) {
+    return [
+      {
+        emoji: FALLBACK_EMOJIS[0],
+        title: lesson.title,
+        text: lesson.concept,
+      },
+    ];
+  }
+  const targetCount = Math.min(3, Math.max(2, Math.ceil(sentences.length / 2)));
+  const chunkSize = Math.max(1, Math.ceil(sentences.length / targetCount));
+  const cards: FlashCard[] = [];
+  for (let i = 0; i < sentences.length; i += chunkSize) {
+    const chunk = sentences.slice(i, i + chunkSize).join(" ");
+    cards.push({
+      emoji: FALLBACK_EMOJIS[cards.length % FALLBACK_EMOJIS.length],
+      title: cards.length === 0 ? lesson.title : `Key idea ${cards.length + 1}`,
+      text: chunk,
+    });
+  }
+  return cards;
 }
