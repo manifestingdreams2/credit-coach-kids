@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useGameState } from "@/hooks/useGameState";
 import {
   curriculum,
@@ -10,12 +10,15 @@ import {
 } from "@/lib/creditCurriculum";
 import ScoreBadge from "@/components/ScoreBadge";
 import ProgressBar from "@/components/ProgressBar";
+import SpeakerButton from "@/components/SpeakerButton";
+import { useAccessibility } from "@/components/AccessibilityProvider";
 
 function ResultsContent() {
   const router = useRouter();
   const params = useSearchParams();
   const levelId = params.get("level");
   const { state, loaded } = useGameState();
+  const { speak, prefs } = useAccessibility();
 
   const level = levelId ? getLevelById(levelId) : null;
   const band = getScoreBand(state.creditScore);
@@ -27,6 +30,20 @@ function ResultsContent() {
     0
   );
   const completedCount = state.completedLessons.length;
+
+  const rewardSpoken = useMemo(() => {
+    if (!loaded) return "";
+    const levelPart =
+      level && state.completedLevels.includes(level.id)
+        ? `Level Complete! You finished ${level.title}.`
+        : "Nice work!";
+    return `${levelPart} Your credit score is ${state.creditScore}. Your tier is ${tierLabel}. You have finished ${completedCount} of ${totalLessons} lessons and earned ${state.totalCoinsEarned} coins.`;
+  }, [loaded, level, state.completedLevels, state.creditScore, state.totalCoinsEarned, tierLabel, completedCount, totalLessons]);
+
+  useEffect(() => {
+    if (!loaded || !rewardSpoken) return;
+    speak(rewardSpoken);
+  }, [loaded, rewardSpoken, speak]);
 
   const nextLesson = (() => {
     for (const lvl of curriculum) {
@@ -108,8 +125,13 @@ function ResultsContent() {
             ← Home
           </button>
 
-          <div style={{ paddingTop: 24 }}>
-            <div style={{ fontSize: 44, marginBottom: 6 }}>
+          <div
+            style={{ paddingTop: 24 }}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <div style={{ fontSize: 44, marginBottom: 6 }} aria-hidden="true">
               {level && state.completedLevels.includes(level.id) ? "🏆" : "⭐"}
             </div>
             <h1
@@ -135,6 +157,54 @@ function ResultsContent() {
                 }}
               >
                 Level {level.number} · {level.title}
+              </p>
+            )}
+            <div
+              style={{
+                marginTop: 14,
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <SpeakerButton
+                text={rewardSpoken}
+                label="Hear my reward"
+                variant="ghost"
+              />
+            </div>
+            {prefs.captions && (
+              <p
+                style={{
+                  margin: "12px auto 0",
+                  maxWidth: 360,
+                  background: "rgba(255,255,255,0.14)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 14,
+                  padding: "10px 12px",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  lineHeight: 1.45,
+                  textAlign: "left",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: "#ffd84d",
+                    color: "#102a5a",
+                    fontSize: 10,
+                    fontWeight: 900,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    marginRight: 8,
+                  }}
+                >
+                  Caption
+                </span>
+                {rewardSpoken}
               </p>
             )}
           </div>

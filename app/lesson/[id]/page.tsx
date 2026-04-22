@@ -14,6 +14,8 @@ import QuizCard from "@/components/QuizCard";
 import ScenarioCard from "@/components/ScenarioCard";
 import ProgressBar from "@/components/ProgressBar";
 import ScoreBadge from "@/components/ScoreBadge";
+import SpeakerButton from "@/components/SpeakerButton";
+import { useAccessibility } from "@/components/AccessibilityProvider";
 
 type Phase = "intro" | "cards" | "quiz" | "complete";
 
@@ -44,6 +46,27 @@ function writeResume(map: ResumeMap) {
   }
 }
 
+function buildRewardSpoken(args: {
+  correctCount: number;
+  total: number;
+  pointsAwarded: number;
+  finalScore: number;
+  closingTip: string;
+}): string {
+  const { correctCount, total, pointsAwarded, finalScore, closingTip } = args;
+  const headline =
+    correctCount === total
+      ? "Perfect score! Great job."
+      : correctCount >= total - 1
+      ? "Great work!"
+      : "Lesson complete.";
+  const points =
+    pointsAwarded > 0
+      ? `You earned ${pointsAwarded} points.`
+      : "No new points this time — this was a practice round.";
+  return `${headline} You got ${correctCount} of ${total} correct. ${points} Your new credit score is ${finalScore}. ${closingTip}`;
+}
+
 export default function LessonPage() {
   const params = useParams<{ id: string }>();
   const lessonId = params?.id ?? "";
@@ -61,6 +84,7 @@ export default function LessonPage() {
   );
 
   const { state, loaded, markLessonComplete } = useGameState();
+  const { speak, prefs } = useAccessibility();
   const [phase, setPhase] = useState<Phase>("intro");
   const [cardIndex, setCardIndex] = useState(0);
   const [qIndex, setQIndex] = useState(0);
@@ -101,6 +125,19 @@ export default function LessonPage() {
     if (!restored) return;
     persistResume({ phase, cardIndex });
   }, [phase, cardIndex, restored, persistResume]);
+
+  useEffect(() => {
+    if (phase !== "complete" || finalScore === null || !lesson) return;
+    speak(
+      buildRewardSpoken({
+        correctCount,
+        total: lesson.questions.length,
+        pointsAwarded,
+        finalScore,
+        closingTip: lesson.closingTip,
+      })
+    );
+  }, [phase, finalScore, correctCount, pointsAwarded, lesson, speak]);
 
   if (!loaded) {
     return (
@@ -297,7 +334,12 @@ export default function LessonPage() {
         )}
 
         {phase === "complete" && finalScore !== null && (
-          <div className="bg-white rounded-3xl shadow-lg p-6 space-y-5 text-center">
+          <div
+            className="bg-white rounded-3xl shadow-lg p-6 space-y-5 text-center"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <div className="text-5xl" aria-hidden>
               {correctCount === total
                 ? "🏆"
@@ -316,6 +358,32 @@ export default function LessonPage() {
               <p className="text-sm font-semibold text-slate-500 mt-1">
                 You got {correctCount} of {total} correct
               </p>
+              <div className="flex justify-center mt-3">
+                <SpeakerButton
+                  text={buildRewardSpoken({
+                    correctCount,
+                    total,
+                    pointsAwarded,
+                    finalScore,
+                    closingTip: lesson.closingTip,
+                  })}
+                  label="Hear my results"
+                />
+              </div>
+              {prefs.captions && (
+                <p className="mt-3 text-xs font-semibold text-slate-500 leading-snug">
+                  <span className="inline-block text-[10px] font-black uppercase tracking-widest bg-violet-600 text-white px-2 py-0.5 rounded-full mr-2 align-middle">
+                    Caption
+                  </span>
+                  {buildRewardSpoken({
+                    correctCount,
+                    total,
+                    pointsAwarded,
+                    finalScore,
+                    closingTip: lesson.closingTip,
+                  })}
+                </p>
+              )}
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-4 space-y-2">

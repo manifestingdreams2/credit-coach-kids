@@ -16,3 +16,90 @@ img {
   max-width: 100%;
   display: block;
 }
+
+/* ---------- Accessibility ---------- */
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: #ffd84d;
+  color: #102a5a;
+  font-weight: 900;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: top 120ms ease-out;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 12px;
+  outline: 3px solid #102a5a;
+  outline-offset: 2px;
+}
+
+:where(a, button, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+  outline: 3px solid #ffd84d;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Larger text mode — scales relative units throughout the app */
+body.a11y-large-text {
+  font-size: 118%;
+}
+body.a11y-large-text h1,
+body.a11y-large-text h2,
+body.a11y-large-text h3 {
+  line-height: 1.25;
+}
+
+/* High contrast mode */
+body.a11y-high-contrast {
+  filter: contrast(1.18) saturate(1.1);
+}
+body.a11y-high-contrast button,
+body.a11y-high-contrast a,
+body.a11y-high-contrast [role="button"] {
+  outline: 2px solid rgba(0, 0, 0, 0.65);
+}
+body.a11y-high-contrast :where(a, button):focus-visible {
+  outline: 4px solid #ffd84d;
+  outline-offset: 3px;
+}
+
+/* Reduced motion — user toggle + system preference */
+body.a11y-reduced-motion *,
+body.a11y-reduced-motion *::before,
+body.a11y-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Screen-reader-only helper */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

@@ -101,7 +101,18 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div style={styles.coinPill}>🪙 {state.totalCoinsEarned}</div>
+            <div style={styles.topBarRight}>
+              <div style={styles.coinPill} aria-label={`Coins: ${state.totalCoinsEarned}`}>
+                🪙 {state.totalCoinsEarned}
+              </div>
+              <Link
+                href="/settings"
+                aria-label="Open accessibility settings"
+                style={styles.settingsIconBtn}
+              >
+                <span aria-hidden="true">⚙️</span>
+              </Link>
+            </div>
           </header>
 
           {activeTab === "home" && (
@@ -140,9 +151,17 @@ export default function HomePage() {
             <div style={styles.complianceLine}>
               Educational app • No financial advice
             </div>
-            <Link href="/legal" style={styles.complianceLink}>
-              Disclaimers & Privacy
-            </Link>
+            <div style={styles.complianceLinks}>
+              <Link href="/settings" style={styles.complianceLink}>
+                ♿ Accessibility
+              </Link>
+              <span aria-hidden="true" style={styles.complianceDot}>
+                •
+              </span>
+              <Link href="/legal" style={styles.complianceLink}>
+                Disclaimers & Privacy
+              </Link>
+            </div>
           </footer>
 
           <div style={styles.bottomSpacer} />
@@ -274,7 +293,15 @@ function HomeView({
           </span>
         </div>
 
-        <div style={styles.scoreBubble}>
+        <div
+          style={styles.scoreBubble}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={`Credit score ${state.creditScore}, tier ${getScoreLabel(
+            state.creditScore
+          )}`}
+        >
           <div style={styles.scoreValue}>{state.creditScore}</div>
           <div style={styles.scoreWord}>{getScoreLabel(state.creditScore)}</div>
         </div>
@@ -702,6 +729,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: "rgba(255,255,255,0.82)",
   },
 
+  topBarRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+
   coinPill: {
     padding: "10px 14px",
     borderRadius: 999,
@@ -712,6 +746,21 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.18)",
     boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
     flexShrink: 0,
+  },
+
+  settingsIconBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.16)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+    color: "#fff",
+    fontSize: 18,
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   coachCard: {
@@ -1332,11 +1381,24 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "0.02em",
   },
 
+  complianceLinks: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+
   complianceLink: {
     fontSize: 12,
     fontWeight: 900,
     color: "#ffd84d",
     textDecoration: "underline",
+  },
+
+  complianceDot: {
+    color: "rgba(255,255,255,0.7)",
+    fontWeight: 900,
   },
 
   bottomSpacer: {
